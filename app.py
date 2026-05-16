@@ -55,15 +55,29 @@ with col_input:
         act_date = st.date_input("Date", datetime.now())
         act_course = st.selectbox("Course/Project", course_list)
         act_type = st.selectbox("Activity Type", ["Lecture", "Deep Study", "Assignment", "Revision", "Thesis Writing", "Other"])
-        act_duration = st.number_input("Duration (minutes)", min_value=5, max_value=480, value=60, step=15)
+        
+        # --- NEW: Hours & Minutes Split Fields ---
+        st.write("**Duration**")
+        col_hrs, col_mins = st.columns(2)
+        with col_hrs:
+            act_hrs = st.number_input("Hours", min_value=0, max_value=12, value=1, step=1)
+        with col_mins:
+            act_mins = st.number_input("Minutes", min_value=0, max_value=59, value=0, step=5)
+            
         act_notes = st.text_area("Notes / Focus Area")
         
         submit_act = st.form_submit_button("Log Activity")
         if submit_act:
-            new_act = pd.DataFrame([[act_date, act_course, act_type, act_duration, act_notes]], columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-            df_activities = pd.concat([df_activities, new_act], ignore_index=True)
-            if 'activities' in st.session_state: st.session_state.activities = df_activities
-            st.success("Activity logged successfully!")
+            # Convert the split hours and minutes back to total minutes for the database
+            total_logged_minutes = (act_hrs * 60) + act_mins
+            
+            if total_logged_minutes == 0:
+                st.error("Duration cannot be 0 minutes!")
+            else:
+                new_act = pd.DataFrame([[act_date, act_course, act_type, total_logged_minutes, act_notes]], columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+                df_activities = pd.concat([df_activities, new_act], ignore_index=True)
+                if 'activities' in st.session_state: st.session_state.activities = df_activities
+                st.success(f"Successfully logged {act_hrs}h {act_mins}m!")
 
     st.write("---")
     st.subheader("⏳ Add Upcoming Deadline")
