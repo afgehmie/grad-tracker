@@ -4,7 +4,7 @@ import plotly.express as px
 from datetime import datetime, timedelta
 
 # Set up page configuration
-st.set_page_config(page_title="AFG Coursework Tracker", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="AFG Tracker - KDI School", layout="wide", initial_sidebar_state="expanded")
 
 # --- SEMESTER TIMING CONFIGURATION ---
 # Semester baseline starts on Sunday, May 17, 2026
@@ -57,15 +57,28 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- PERSONALIZED HEADER ---
-# We use custom HTML to force the title into one line with a smaller, fluid font size
+# --- PERSONALIZED HEADER (ONE-LINE FIX) ---
 st.markdown("""
-    <h1 style='text-align: center; font-size: 2.2rem; white-space: nowrap; margin-bottom: 20px;'>
-        ARCHIE FLOMO GEHMIE Coursework & Progress Tracker
-    </h1>
+    <style>
+        .personalized-header {
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            padding: 10px 0;
+            /* Fluid font size for responsive one-line fit */
+            font-size: clamp(1.2rem, 4vw, 2.8rem); 
+        }
+    </style>
+    <div class='personalized-header'>
+        Archie's Coursework and Progress Tracker - KDI School
+    </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<p style='text-align: center; color: #888;'>Track your academic velocity and manage priorities for the 2026 Semester.</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
 # --- WEEK FILTER ---
@@ -113,8 +126,11 @@ with col_dash:
     st.progress(min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0)
     
     st.write("---")
+    st.subheader(f"📚 Time Accumulated Per Course")
     if not df_filtered_activities.empty and total_hours > 0:
         df_chart = df_filtered_activities.groupby('Course')['Duration'].sum().reset_index()
         df_chart['Hours'] = df_chart['Duration'] / 60
         fig = px.bar(df_chart, x='Course', y='Hours', color='Course', template="plotly_dark", title=f"Study Velocity: {selected_week}")
         st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No activities logged in this week view yet.")
