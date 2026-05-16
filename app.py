@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="AFG Tracker - KDI School", layout="wide", initial_sidebar_state="expanded")
 
 # --- SEMESTER TIMING CONFIGURATION ---
-# Semester baseline starts on Sunday, May 17, 2026
 SEMESTER_START = datetime(2026, 5, 17).date()
 
 def calculate_semester_week(input_date):
@@ -57,7 +56,7 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- PERSONALIZED HEADER (ONE-LINE FIX) ---
+# --- PERSONALIZED HEADER (STRICT ONE-LINE FIT) ---
 st.markdown("""
     <style>
         .personalized-header {
@@ -67,10 +66,10 @@ st.markdown("""
             color: white;
             white-space: nowrap;
             overflow: hidden;
-            text-overflow: ellipsis;
             padding: 10px 0;
-            /* Fluid font size for responsive one-line fit */
-            font-size: clamp(1.2rem, 4vw, 2.8rem); 
+            /* Reduced font size significantly to ensure fit */
+            font-size: clamp(0.9rem, 2.2vw, 1.7rem); 
+            letter-spacing: -0.5px;
         }
     </style>
     <div class='personalized-header'>
@@ -78,7 +77,7 @@ st.markdown("""
     </div>
     """, unsafe_allow_html=True)
 
-st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
 # --- WEEK FILTER ---
