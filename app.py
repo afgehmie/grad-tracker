@@ -7,15 +7,12 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Grad Student Tracker", layout="wide", initial_sidebar_state="expanded")
 
 # --- GOOGLE SHEETS CONNECTION ---
-# This connects your app to a Google Sheet so your data never disappears
 try:
     from streamlit_gsheets import GSheetsConnection
     conn = st.connection("gsheets", type=GSheetsConnection)
-    # Read existing data or create empty dataframes if sheet is empty
     df_activities = conn.read(worksheet="Activities", ttl="0m")
     df_deadlines = conn.read(worksheet="Deadlines", ttl="0m")
 except Exception:
-    # Fallback to local session storage if Google Sheets isn't linked yet
     if 'activities' not in st.session_state:
         st.session_state.activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
     if 'deadlines' not in st.session_state:
@@ -29,10 +26,18 @@ st.sidebar.title("⚙️ Controls & Settings")
 # 1. Dynamic Weekly Target
 target_hours = st.sidebar.slider("Target Study Hours This Week", min_value=10, max_value=80, value=40, step=5)
 
-# 2. Dynamic Course Management (Editable)
-st.sidebar.subheader("Your Courses")
+# 2. YOUR PERMANENT COURSE LIST
+# I have updated this list to match your actual semester courses!
 if 'courses' not in st.session_state:
-    st.session_state.courses = ["Course A", "Course B", "Thesis Research", "Seminar"]
+    st.session_state.courses = [
+        "Korean Language & Culture",
+        "Financial Statement Analysis & Valuation",
+        "Introduction to Geospatial Analysis",
+        "Managerial Accounting",
+        "Entrepreneurship & Innovation",
+        "Programming Fundamentals using Python",
+        "Technological Innovation in Finance"
+    ]
     
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
@@ -63,7 +68,7 @@ with col_input:
 
     st.write("---")
     st.subheader("⏳ Add Upcoming Deadline")
-    with st.form("deadline_form", clear_on_submit=True):
+    with th st.form("deadline_form", clear_on_submit=True):
         dl_task = st.text_input("Task/Assignment Name")
         dl_course = st.selectbox("Associated Course", course_list, key="dl_course")
         dl_date = st.date_input("Due Date", datetime.now() + timedelta(days=7))
@@ -95,7 +100,7 @@ with col_dash:
     if not df_activities.empty:
         df_chart = df_activities.groupby('Course')['Duration'].sum().reset_index()
         df_chart['Hours'] = df_chart['Duration'] / 60
-        fig = px.bar(df_chart, x='Course', y='Hours', title="Hours Spent per Course/Project", labels={'Hours':'Total HoursSpent'}, color='Course', template="plotly_dark")
+        fig = px.bar(df_chart, x='Course', y='Hours', title="Hours Spent per Course/Project", labels={'Hours':'Total Hours Spent'}, color='Course', template="plotly_dark")
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No activities logged yet. Log something on the left to see chart updates!")
@@ -104,15 +109,11 @@ with col_dash:
     st.write("---")
     st.subheader("🚨 Priority-Weighted Deadlines")
     if not df_deadlines.empty:
-        # Simple sorting weight algorithm: High priority and closer dates go up
         priority_map = {"High": 3, "Medium": 2, "Low": 1}
         df_deadlines['Priority_Weight'] = df_deadlines['Priority'].map(priority_map)
         df_deadlines['Due Date'] = pd.to_datetime(df_deadlines['Due Date'])
         
-        # Sort by status (Pending first), Priority (Highest first), and Due Date (Closest first)
         df_sorted = df_deadlines.sort_values(by=['Status', 'Priority_Weight', 'Due Date'], ascending=[False, False, True])
-        
-        # Drop the helper column for clean UI display
         df_display = df_sorted.drop(columns=['Priority_Weight'])
         st.dataframe(df_display, use_container_width=True)
     else:
