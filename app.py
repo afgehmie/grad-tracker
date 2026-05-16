@@ -27,7 +27,6 @@ st.sidebar.title("⚙️ Controls & Settings")
 target_hours = st.sidebar.slider("Target Study Hours This Week", min_value=10, max_value=80, value=40, step=5)
 
 # 2. YOUR PERMANENT COURSE LIST
-# I have updated this list to match your actual semester courses!
 if 'courses' not in st.session_state:
     st.session_state.courses = [
         "Korean Language & Culture",
@@ -68,7 +67,7 @@ with col_input:
 
     st.write("---")
     st.subheader("⏳ Add Upcoming Deadline")
-    with th st.form("deadline_form", clear_on_submit=True):
+    with st.form("deadline_form", clear_on_submit=True):
         dl_task = st.text_input("Task/Assignment Name")
         dl_course = st.selectbox("Associated Course", course_list, key="dl_course")
         dl_date = st.date_input("Due Date", datetime.now() + timedelta(days=7))
