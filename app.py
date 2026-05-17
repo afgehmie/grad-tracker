@@ -25,30 +25,21 @@ def get_date_range_for_week(week_str):
     end_date = start_date + timedelta(days=6)
     return start_date, end_date
 
-# --- DATA INITIALIZATION & MEMORY PERSISTENCE ---
-# This structure guarantees local fallback state is isolated and safely readable anywhere in the layout
-if 'activities' not in st.session_state:
-    st.session_state.activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-if 'deadlines' not in st.session_state:
-    st.session_state.deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
-
-# Attempt cloud connection reading, fallback immediately to protected memory state upon environment reset
+# --- GOOGLE SHEETS CONNECTION ---
 try:
     from streamlit_gsheets import GSheetsConnection
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_activities = conn.read(worksheet="Activities", ttl="0m")
     df_deadlines = conn.read(worksheet="Deadlines", ttl="0m")
-    # Sync sheets to session state if sheets data exists
-    if df_activities is not None and not df_activities.empty:
-        st.session_state.activities = df_activities
-    if df_deadlines is not None and not df_deadlines.empty:
-        st.session_state.deadlines = df_deadlines
+    using_cloud_db = True
 except Exception:
-    pass
-
-# Read directly from protected session memory layer for render execution
-df_activities = st.session_state.activities
-df_deadlines = st.session_state.deadlines
+    using_cloud_db = False
+    if 'activities' not in st.session_state:
+        st.session_state.activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+    if 'deadlines' not in st.session_state:
+        st.session_state.deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
+    df_activities = st.session_state.activities
+    df_deadlines = st.session_state.deadlines
 
 if not df_activities.empty:
     df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
@@ -90,6 +81,12 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
+# Alert user if they are using temporary or cloud database
+if using_cloud_db:
+    st.success("🔒 Connected safely to your permanent Google Sheet database storage.")
+else:
+    st.warning("⚠️ Running on temporary session storage. Setup your Streamlit Secrets to connect Google Sheets permanently.")
+
 # --- WEEK FILTER ---
 current_week_num = max(1, ((datetime.now().date() - SEMESTER_START).days // 7) + 1)
 available_weeks = [f"Week {i}" for i in range(1, 17)] 
@@ -98,13 +95,12 @@ selected_week = st.selectbox("📅 Select Semester Week View:", options=availabl
 w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
-# Apply filter mapping safely before layout columns ingest the structure
 if not df_activities.empty:
     df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
 else:
     df_filtered_activities = df_activities
 
-# --- LAYOUT SEGMENTATION ---
+# --- LAYOUT ---
 col_input, col_dash = st.columns([1, 2])
 
 with col_input:
@@ -112,41 +108,30 @@ with col_input:
     with st.form("activity_form", clear_on_submit=True):
         act_date = st.date_input("Date", datetime.now())
         act_course = st.selectbox("Course", course_list)
-        act_type = st.selectbox("Type", [
-            "General Overview / Skimming", 
-            "Conceptual Deep Dive", 
-            "Practice", 
-            "Assignment/Project", 
-            "Revision", 
-            "Others"
-        ])
-        
+        act_type = st.selectbox("Type", ["General Overview / Skimming", "Conceptual Deep Dive", "Practice", "Assignment/Project", "Revision", "Others"])
         col_hrs, col_mins = st.columns(2)
         with col_hrs: act_hrs = st.number_input("Hours", 0, 12, 1)
         with col_mins: act_mins = st.number_input("Minutes", 0, 59, 0, 5)
         act_notes = st.text_area("Notes")
-        
         if st.form_submit_button("Log Activity"):
             total_mins = (act_hrs * 60) + act_mins
             if total_mins > 0:
-                new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], 
-                                       columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-                
-                # Append to current execution data profile and write cleanly to session state
-                updated_activities = pd.concat([st.session_state.activities, new_act], ignore_index=True)
-                st.session_state.activities = updated_activities
-                
-                st.success(f"Successfully logged {act_hrs}h {act_mins}m!")
+                if using_cloud_db:
+                    # Append rows directly to the cloud sheet database
+                    new_row = [str(act_date), act_course, act_type, total_mins, act_notes]
+                    conn.create(worksheet="Activities", data=[new_row], append=True)
+                else:
+                    new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+                    df_activities = pd.concat([df_activities, new_act], ignore_index=True)
+                    st.session_state.activities = df_activities
+                st.success(f"Logged {act_hrs}h {act_mins}m to {calculate_semester_week(act_date)}!")
                 st.rerun()
-            else:
-                st.error("Duration cannot be 0 hours and 0 minutes!")
 
 with col_dash:
     if not df_filtered_activities.empty:
         df_filtered_activities['Duration'] = pd.to_numeric(df_filtered_activities['Duration'], errors='coerce').fillna(0)
         total_hours = float(df_filtered_activities['Duration'].sum() / 60)
-    else: 
-        total_hours = 0.0
+    else: total_hours = 0.0
     
     st.subheader(f"📊 {selected_week} Matrix")
     st.metric("Hours Tracked", f"{total_hours:.1f} hrs", f"{total_hours - target_hours:.1f} vs Target")
@@ -160,4 +145,4 @@ with col_dash:
         fig = px.bar(df_chart, x='Course', y='Hours', color='Course', template="plotly_dark", title=f"Study Velocity: {selected_week}")
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No activities logged in this week view yet. Log something on the left to see the bar chart generate!")
+        st.info("No activities logged in this week view yet.")
