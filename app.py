@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="AFG Tracker - KDI School", layout="wide", initial_sidebar_state="expanded")
 
 # --- SEMESTER TIMING CONFIGURATION ---
-# Semester baseline starts on Sunday, May 17, 2026
 SEMESTER_START = datetime(2026, 5, 17).date()
 
 def calculate_semester_week(input_date):
@@ -26,19 +25,30 @@ def get_date_range_for_week(week_str):
     end_date = start_date + timedelta(days=6)
     return start_date, end_date
 
-# --- GOOGLE SHEETS CONNECTION ---
+# --- DATA INITIALIZATION & MEMORY PERSISTENCE ---
+# This structure guarantees local fallback state is isolated and safely readable anywhere in the layout
+if 'activities' not in st.session_state:
+    st.session_state.activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+if 'deadlines' not in st.session_state:
+    st.session_state.deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
+
+# Attempt cloud connection reading, fallback immediately to protected memory state upon environment reset
 try:
     from streamlit_gsheets import GSheetsConnection
     conn = st.connection("gsheets", type=GSheetsConnection)
     df_activities = conn.read(worksheet="Activities", ttl="0m")
     df_deadlines = conn.read(worksheet="Deadlines", ttl="0m")
+    # Sync sheets to session state if sheets data exists
+    if df_activities is not None and not df_activities.empty:
+        st.session_state.activities = df_activities
+    if df_deadlines is not None and not df_deadlines.empty:
+        st.session_state.deadlines = df_deadlines
 except Exception:
-    if 'activities' not in st.session_state:
-        st.session_state.activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-    if 'deadlines' not in st.session_state:
-        st.session_state.deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
-    df_activities = st.session_state.activities
-    df_deadlines = st.session_state.deadlines
+    pass
+
+# Read directly from protected session memory layer for render execution
+df_activities = st.session_state.activities
+df_deadlines = st.session_state.deadlines
 
 if not df_activities.empty:
     df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
@@ -88,42 +98,55 @@ selected_week = st.selectbox("📅 Select Semester Week View:", options=availabl
 w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
+# Apply filter mapping safely before layout columns ingest the structure
 if not df_activities.empty:
-    # ... inside your with st.form("activity_form"): ...
+    df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
+else:
+    df_filtered_activities = df_activities
+
+# --- LAYOUT SEGMENTATION ---
+col_input, col_dash = st.columns([1, 2])
+
+with col_input:
+    st.subheader("📝 Log Activity")
+    with st.form("activity_form", clear_on_submit=True):
+        act_date = st.date_input("Date", datetime.now())
+        act_course = st.selectbox("Course", course_list)
+        act_type = st.selectbox("Type", [
+            "General Overview / Skimming", 
+            "Conceptual Deep Dive", 
+            "Practice", 
+            "Assignment/Project", 
+            "Revision", 
+            "Others"
+        ])
+        
+        col_hrs, col_mins = st.columns(2)
+        with col_hrs: act_hrs = st.number_input("Hours", 0, 12, 1)
+        with col_mins: act_mins = st.number_input("Minutes", 0, 59, 0, 5)
         act_notes = st.text_area("Notes")
         
-        # Form Submission Button
-        submitted = st.form_submit_button("Log Activity")
-        if submitted:
-            total_mins = (act_hrs * 60) + act_mins
-            if total_mins > 0:
-                # Prepare the new data row
-                new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], 
-                                       columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-                
-                # Append to global dataframe and update the session memory immediately
-                df_activities = pd.concat([df_activities, new_act], ignore_index=True)
-                st.session_state.activities = df_activities
-                
-                # Show immediate feedback on screen
-                st.success(f"Logged {act_hrs}h {act_mins}m to {calculate_semester_week(act_date)}!")
-                
-                # Force an immediate page update so the charts read the new session state
-                st.navigation_glitch_fix = True 
-                st.rerun()
         if st.form_submit_button("Log Activity"):
             total_mins = (act_hrs * 60) + act_mins
             if total_mins > 0:
-                new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-                df_activities = pd.concat([df_activities, new_act], ignore_index=True)
-                st.success(f"Logged {act_hrs}h {act_mins}m to {calculate_semester_week(act_date)}!")
+                new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], 
+                                       columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+                
+                # Append to current execution data profile and write cleanly to session state
+                updated_activities = pd.concat([st.session_state.activities, new_act], ignore_index=True)
+                st.session_state.activities = updated_activities
+                
+                st.success(f"Successfully logged {act_hrs}h {act_mins}m!")
                 st.rerun()
+            else:
+                st.error("Duration cannot be 0 hours and 0 minutes!")
 
 with col_dash:
     if not df_filtered_activities.empty:
         df_filtered_activities['Duration'] = pd.to_numeric(df_filtered_activities['Duration'], errors='coerce').fillna(0)
         total_hours = float(df_filtered_activities['Duration'].sum() / 60)
-    else: total_hours = 0.0
+    else: 
+        total_hours = 0.0
     
     st.subheader(f"📊 {selected_week} Matrix")
     st.metric("Hours Tracked", f"{total_hours:.1f} hrs", f"{total_hours - target_hours:.1f} vs Target")
@@ -137,4 +160,4 @@ with col_dash:
         fig = px.bar(df_chart, x='Course', y='Hours', color='Course', template="plotly_dark", title=f"Study Velocity: {selected_week}")
         st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No activities logged in this week view yet.")
+        st.info("No activities logged in this week view yet. Log something on the left to see the bar chart generate!")
