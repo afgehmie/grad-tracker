@@ -89,33 +89,28 @@ w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
 if not df_activities.empty:
-    df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
-else:
-    df_filtered_activities = df_activities
-
-# --- LAYOUT ---
-col_input, col_dash = st.columns([1, 2])
-
-with col_input:
-    st.subheader("📝 Log Activity")
-    with st.form("activity_form", clear_on_submit=True):
-        act_date = st.date_input("Date", datetime.now())
-        act_course = st.selectbox("Course", course_list)
-        
-        # --- NEWLY UPDATED ACTIVITY TYPES ---
-        act_type = st.selectbox("Type", [
-            "General Overview / Skimming", 
-            "Conceptual Deep Dive", 
-            "Practice", 
-            "Assignment/Project", 
-            "Revision", 
-            "Others"
-        ])
-        
-        col_hrs, col_mins = st.columns(2)
-        with col_hrs: act_hrs = st.number_input("Hours", 0, 12, 1)
-        with col_mins: act_mins = st.number_input("Minutes", 0, 59, 0, 5)
+    # ... inside your with st.form("activity_form"): ...
         act_notes = st.text_area("Notes")
+        
+        # Form Submission Button
+        submitted = st.form_submit_button("Log Activity")
+        if submitted:
+            total_mins = (act_hrs * 60) + act_mins
+            if total_mins > 0:
+                # Prepare the new data row
+                new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], 
+                                       columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+                
+                # Append to global dataframe and update the session memory immediately
+                df_activities = pd.concat([df_activities, new_act], ignore_index=True)
+                st.session_state.activities = df_activities
+                
+                # Show immediate feedback on screen
+                st.success(f"Logged {act_hrs}h {act_mins}m to {calculate_semester_week(act_date)}!")
+                
+                # Force an immediate page update so the charts read the new session state
+                st.navigation_glitch_fix = True 
+                st.rerun()
         if st.form_submit_button("Log Activity"):
             total_mins = (act_hrs * 60) + act_mins
             if total_mins > 0:
