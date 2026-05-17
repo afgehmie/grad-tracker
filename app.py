@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="AFG Tracker - KDI School", layout="wide", initial_sidebar_state="expanded")
 
 # --- SEMESTER TIMING CONFIGURATION ---
+# Semester baseline starts on Sunday, May 17, 2026
 SEMESTER_START = datetime(2026, 5, 17).date()
 
 def calculate_semester_week(input_date):
@@ -67,7 +68,6 @@ st.markdown("""
             white-space: nowrap;
             overflow: hidden;
             padding: 10px 0;
-            /* Reduced font size significantly to ensure fit */
             font-size: clamp(0.9rem, 2.2vw, 1.7rem); 
             letter-spacing: -0.5px;
         }
@@ -101,7 +101,17 @@ with col_input:
     with st.form("activity_form", clear_on_submit=True):
         act_date = st.date_input("Date", datetime.now())
         act_course = st.selectbox("Course", course_list)
-        act_type = st.selectbox("Type", ["Lecture", "Deep Study", "Assignment", "Revision", "Thesis Writing", "Other"])
+        
+        # --- NEWLY UPDATED ACTIVITY TYPES ---
+        act_type = st.selectbox("Type", [
+            "General Overview / Skimming", 
+            "Conceptual Deep Dive", 
+            "Practice", 
+            "Assignment/Project", 
+            "Revision", 
+            "Others"
+        ])
+        
         col_hrs, col_mins = st.columns(2)
         with col_hrs: act_hrs = st.number_input("Hours", 0, 12, 1)
         with col_mins: act_mins = st.number_input("Minutes", 0, 59, 0, 5)
