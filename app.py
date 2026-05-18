@@ -33,24 +33,32 @@ try:
     from streamlit_gsheets import GSheetsConnection
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # FORCE the app to read directly from the Google Form destination tab
-    df_activities = conn.read(worksheet="Form Responses 1", ttl="0m")
-    
-    # Standardize column naming to match your form fields perfectly
+    # Read the data, fallback gracefully if the sheet is open or completely new
+    try:
+        df_activities = conn.read(worksheet="Form Responses 1", ttl="0m")
+    except Exception:
+        # Secondary fallback try in case whitespace strings cause library errors
+        df_activities = conn.read(ttl="0m")
+        
     if df_activities is not None and not df_activities.empty:
-        # Google Forms inserts a 'Timestamp' column automatically as column 1
-        # We rename the remaining columns to ensure our math filters don't break
-        df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
+        # Explicitly find and map whatever columns exist to match your metrics
+        cols = list(df_activities.columns)
+        if len(cols) >= 6:
+            df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + cols[6:]
     else:
         df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
+        
     using_cloud_db = True
-except Exception:
+except Exception as e:
     if 'activities' not in st.session_state:
         st.session_state.activities = df_activities
     df_activities = st.session_state.activities
 
 if not df_activities.empty and 'Date' in df_activities.columns:
-    df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
+    try:
+        df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
+    except Exception:
+        pass
 
 # --- APP SIDEBAR ---
 st.sidebar.title("⚙️ Controls & Settings")
@@ -80,6 +88,7 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
+# Visual feedback verification
 if using_cloud_db and "form_url" in st.secrets.get("form_entries", {}):
     st.success("🔒 Connected safely via pre-authorized Google Gateway channel.")
 else:
@@ -93,7 +102,11 @@ w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
 if not df_activities.empty and 'Date' in df_activities.columns:
-    df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
+    try:
+        df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
+        df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
+    except Exception:
+        df_filtered_activities = df_activities
 else:
     df_filtered_activities = df_activities
 
