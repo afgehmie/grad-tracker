@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import requests
 from datetime import datetime, timedelta
 
-# Set up page configuration
 st.set_page_config(page_title="AFG Tracker - KDI School", layout="wide", initial_sidebar_state="expanded")
 
 # --- SEMESTER TIMING CONFIGURATION ---
@@ -28,37 +28,27 @@ def get_date_range_for_week(week_str):
 # --- GOOGLE SHEETS CONNECTION ---
 using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-df_deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
 
 try:
     from streamlit_gsheets import GSheetsConnection
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    try:
-        df_activities = conn.read(worksheet="Activities", ttl="0m")
-        # Handle cases where read returns something with missing columns or completely empty text
-        if df_activities is None or df_activities.empty or 'Date' not in df_activities.columns:
-            df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-    except Exception:
-        df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-
-    try:
-        df_deadlines = conn.read(worksheet="Deadlines", ttl="0m")
-        if df_deadlines is None or df_deadlines.empty:
-            df_deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
-    except Exception:
-        df_deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
-        
+    # FORCE the app to read directly from the Google Form destination tab
+    df_activities = conn.read(worksheet="Form Responses 1", ttl="0m")
+    
+    # Standardize column naming to match your form fields perfectly
+    if df_activities is not None and not df_activities.empty:
+        # Google Forms inserts a 'Timestamp' column automatically as column 1
+        # We rename the remaining columns to ensure our math filters don't break
+        df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
+    else:
+        df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
     using_cloud_db = True
-except Exception as e:
+except Exception:
     if 'activities' not in st.session_state:
         st.session_state.activities = df_activities
-    if 'deadlines' not in st.session_state:
-        st.session_state.deadlines = df_deadlines
     df_activities = st.session_state.activities
-    df_deadlines = st.session_state.deadlines
 
-# Clean up date types for math filters
 if not df_activities.empty and 'Date' in df_activities.columns:
     df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
 
@@ -80,40 +70,29 @@ course_list = editable_courses["Courses"].tolist()
 st.markdown("""
     <style>
         .personalized-header {
-            text-align: center;
-            font-family: 'Inter', sans-serif;
-            font-weight: 700;
-            color: white;
-            white-space: nowrap;
-            overflow: hidden;
-            padding: 10px 0;
-            font-size: clamp(0.9rem, 2.2vw, 1.7rem); 
-            letter-spacing: -0.5px;
+            text-align: center; font-family: 'Inter', sans-serif; font-weight: 700; color: white;
+            white-space: nowrap; overflow: hidden; padding: 10px 0;
+            font-size: clamp(0.9rem, 2.2vw, 1.7rem); letter-spacing: -0.5px;
         }
     </style>
-    <div class='personalized-header'>
-        Archie's Coursework and Progress Tracker - KDI School
-    </div>
+    <div class='personalized-header'>Archie's Coursework and Progress Tracker - KDI School</div>
     """, unsafe_allow_html=True)
-
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-if using_cloud_db:
-    st.success("🔒 Connected safely to your permanent Google Sheet database storage.")
+if using_cloud_db and "form_url" in st.secrets.get("form_entries", {}):
+    st.success("🔒 Connected safely via pre-authorized Google Gateway channel.")
 else:
-    st.warning("⚠️ Running on temporary session storage. Check your Streamlit Secrets.")
+    st.warning("⚠️ Running on temporary session fallback logic.")
 
 # --- WEEK FILTER ---
 current_week_num = max(1, ((datetime.now().date() - SEMESTER_START).days // 7) + 1)
 available_weeks = [f"Week {i}" for i in range(1, 17)] 
-
 selected_week = st.selectbox("📅 Select Semester Week View:", options=available_weeks, index=min(current_week_num - 1, len(available_weeks) - 1))
 w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
 if not df_activities.empty and 'Date' in df_activities.columns:
-    df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
     df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
 else:
     df_filtered_activities = df_activities
@@ -131,41 +110,39 @@ with col_input:
         with col_hrs: act_hrs = st.number_input("Hours", 0, 12, 1)
         with col_mins: act_mins = st.number_input("Minutes", 0, 59, 0, 5)
         act_notes = st.text_area("Notes")
+        
         if st.form_submit_button("Log Activity"):
             total_mins = (act_hrs * 60) + act_mins
             if total_mins > 0:
-                # Format exactly as a structured dictionary row
-                new_row = {
-                    'Date': str(act_date),
-                    'Course': act_course,
-                    'Type': act_type,
-                    'Duration': int(total_mins),
-                    'Notes': act_notes
-                }
+                f_secrets = st.secrets.get("form_entries", {})
+                form_url = f_secrets.get("form_url")
                 
-                if using_cloud_db:
-                    # Clear out date conversion formats before modifying the full dataframe
-                    if not df_activities.empty:
-                        df_activities['Date'] = df_activities['Date'].astype(str)
-                    
-                    # Standard Python concat operation
-                    updated_df = pd.concat([df_activities, pd.DataFrame([new_row])], ignore_index=True)
-                    
-                    # Update the Google sheet by overwriting it completely with the newly extended DataFrame
-                    conn.update(worksheet="Activities", data=updated_df)
+                if form_url:
+                    form_data = {
+                        f_secrets.get("date_entry"): str(act_date),
+                        f_secrets.get("course_entry"): act_course,
+                        f_secrets.get("type_entry"): act_type,
+                        f_secrets.get("duration_entry"): int(total_mins),
+                        f_secrets.get("notes_entry"): act_notes
+                    }
+                    try:
+                        response = requests.post(form_url, data=form_data)
+                        st.success(f"Logged {act_hrs}h {act_mins}m safely to database backend!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Form delivery issue: {str(e)}")
                 else:
-                    new_act_df = pd.DataFrame([new_row])
-                    df_activities = pd.concat([df_activities, new_act_df], ignore_index=True)
-                    st.session_state.activities = df_activities
-                    
-                st.success(f"Logged {act_hrs}h {act_mins}m to {calculate_semester_week(act_date)}!")
-                st.rerun()
+                    new_act_df = pd.DataFrame([{"Date": act_date, "Course": act_course, "Type": act_type, "Duration": total_mins, "Notes": act_notes}])
+                    st.session_state.activities = pd.concat([df_activities, new_act_df], ignore_index=True)
+                    st.success("Logged locally to temporary session state.")
+                    st.rerun()
 
 with col_dash:
     if not df_filtered_activities.empty:
         df_filtered_activities['Duration'] = pd.to_numeric(df_filtered_activities['Duration'], errors='coerce').fillna(0)
         total_hours = float(df_filtered_activities['Duration'].sum() / 60)
-    else: total_hours = 0.0
+    else:
+        total_hours = 0.0
     
     st.subheader(f"📊 {selected_week} Matrix")
     st.metric("Hours Tracked", f"{total_hours:.1f} hrs", f"{total_hours - target_hours:.1f} vs Target")
