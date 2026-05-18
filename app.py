@@ -25,40 +25,33 @@ def get_date_range_for_week(week_str):
     end_date = start_date + timedelta(days=6)
     return start_date, end_date
 
-# --- GOOGLE SHEETS CONNECTION ---
+# --- DIRECT CSV WEB DB CONNECTION ---
 using_cloud_db = False
-df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
+
+# Construct the direct download link using your specific sheet credentials
+csv_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd9615Bse0q5Jg/export?format=csv&gid=1532866052"
 
 try:
-    from streamlit_gsheets import GSheetsConnection
-    conn = st.connection("gsheets", type=GSheetsConnection)
+    # Read the live sheet data directly using a standard web request
+    df_activities = pd.read_csv(csv_url)
     
-    # Read the data, fallback gracefully if the sheet is open or completely new
-    try:
-        df_activities = conn.read(worksheet="Form Responses 1", ttl="0m")
-    except Exception:
-        # Secondary fallback try in case whitespace strings cause library errors
-        df_activities = conn.read(ttl="0m")
-        
-    if df_activities is not None and not df_activities.empty:
-        # Explicitly find and map whatever columns exist to match your metrics
-        cols = list(df_activities.columns)
-        if len(cols) >= 6:
-            df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + cols[6:]
-    else:
-        df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
-        
-    using_cloud_db = True
+    if df_activities is not None:
+        using_cloud_db = True
+        # If the sheet is brand new and completely empty, force headers to be correct
+        if df_activities.empty or 'Date' not in df_activities.columns:
+            df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
+        else:
+            # Ensure columns map perfectly to prevent calculation errors
+            df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
 except Exception as e:
+    # Local fallback storage if offline
     if 'activities' not in st.session_state:
-        st.session_state.activities = df_activities
+        st.session_state.activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
     df_activities = st.session_state.activities
 
 if not df_activities.empty and 'Date' in df_activities.columns:
-    try:
-        df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
-    except Exception:
-        pass
+    df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
 
 # --- APP SIDEBAR ---
 st.sidebar.title("⚙️ Controls & Settings")
@@ -88,9 +81,9 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Visual feedback verification
-if using_cloud_db and "form_url" in st.secrets.get("form_entries", {}):
-    st.success("🔒 Connected safely via pre-authorized Google Gateway channel.")
+# Permanent Storage Verification Banner
+if using_cloud_db:
+    st.success("🔒 Connected safely to your permanent Google Sheet database storage layer.")
 else:
     st.warning("⚠️ Running on temporary session fallback logic.")
 
@@ -102,11 +95,7 @@ w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
 if not df_activities.empty and 'Date' in df_activities.columns:
-    try:
-        df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
-        df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
-    except Exception:
-        df_filtered_activities = df_activities
+    df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
 else:
     df_filtered_activities = df_activities
 
@@ -145,7 +134,7 @@ with col_input:
                     except Exception as e:
                         st.error(f"Form delivery issue: {str(e)}")
                 else:
-                    new_act_df = pd.DataFrame([{"Date": act_date, "Course": act_course, "Type": act_type, "Duration": total_mins, "Notes": act_notes}])
+                    new_act_df = pd.DataFrame([{"Timestamp": str(datetime.now()), "Date": act_date, "Course": act_course, "Type": act_type, "Duration": total_mins, "Notes": act_notes}])
                     st.session_state.activities = pd.concat([df_activities, new_act_df], ignore_index=True)
                     st.success("Logged locally to temporary session state.")
                     st.rerun()
@@ -170,3 +159,4 @@ with col_dash:
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No activities logged in this week view yet.")
+    
