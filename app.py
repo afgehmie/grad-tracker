@@ -36,23 +36,26 @@ try:
     df_raw = pd.read_csv(csv_url)
     
     if df_raw is not None:
-        using_cloud_db = True
-        # Handle blank sheet configurations safely
-        if df_raw.empty or len(df_raw.columns) < 2:
-            df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
-        else:
-            # Cleanly align incoming data columns
+        # If the sheet has data rows, clean up and align headers perfectly
+        if not df_raw.empty and len(df_raw.columns) >= 6:
             df_activities = df_raw.copy()
+            # Force columns to map perfectly to match Google Form's exact output order
             df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + list(df_raw.columns[6:])
+            using_cloud_db = True
+        else:
+            # Empty state tracking setup
+            df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
+            using_cloud_db = True
 except Exception as e:
     if 'activities' not in st.session_state:
         st.session_state.activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
     df_activities = st.session_state.activities
 
-# Clean up data column entries safely
-if not df_activities.empty:
+# --- DATETIME PARSING ENGINE ---
+if not df_activities.empty and 'Date' in df_activities.columns:
     try:
-        df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
+        # Safely convert slash strings (e.g., 5/18/2026) into clean Python dates
+        df_activities['Date'] = pd.to_datetime(df_activities['Date'], errors='coerce').dt.date
     except Exception:
         pass
 
@@ -99,7 +102,9 @@ st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {
 
 if not df_activities.empty and 'Date' in df_activities.columns:
     try:
-        df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
+        # Clear out any unparseable rows safely before filtering date limits
+        df_valid_dates = df_activities.dropna(subset=['Date'])
+        df_filtered_activities = df_valid_dates[(df_valid_dates['Date'] >= w_start) & (df_valid_dates['Date'] <= w_end)]
     except Exception:
         df_filtered_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 else:
