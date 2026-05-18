@@ -34,7 +34,6 @@ try:
     from streamlit_gsheets import GSheetsConnection
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # Try reading, if it fails because it's empty, we keep our blank schema dataframes
     try:
         df_activities = conn.read(worksheet="Activities", ttl="0m")
         if df_activities.empty:
@@ -51,7 +50,6 @@ try:
         
     using_cloud_db = True
 except Exception as e:
-    # Fallback to pure session state if secrets are missing entirely
     if 'activities' not in st.session_state:
         st.session_state.activities = df_activities
     if 'deadlines' not in st.session_state:
@@ -99,7 +97,6 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Status Check Banner
 if using_cloud_db:
     st.success("🔒 Connected safely to your permanent Google Sheet database storage.")
 else:
@@ -114,6 +111,8 @@ w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
 if not df_activities.empty:
+    # Ensure date comparisons are clean
+    df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
     df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
 else:
     df_filtered_activities = df_activities
@@ -134,13 +133,22 @@ with col_input:
         if st.form_submit_button("Log Activity"):
             total_mins = (act_hrs * 60) + act_mins
             if total_mins > 0:
+                # Format exactly as a structured DataFrame row to completely prevent the TypeError
+                new_act_df = pd.DataFrame([{
+                    'Date': str(act_date),
+                    'Course': act_course,
+                    'Type': act_type,
+                    'Duration': int(total_mins),
+                    'Notes': act_notes
+                }])
+                
                 if using_cloud_db:
-                    new_row = [str(act_date), act_course, act_type, int(total_mins), act_notes]
-                    conn.create(worksheet="Activities", data=[new_row], append=True)
+                    # Append the safely structured DataFrame row directly to Google Sheets
+                    conn.create(worksheet="Activities", data=new_act_df, append=True)
                 else:
-                    new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
-                    df_activities = pd.concat([df_activities, new_act], ignore_index=True)
+                    df_activities = pd.concat([df_activities, new_act_df], ignore_index=True)
                     st.session_state.activities = df_activities
+                    
                 st.success(f"Logged {act_hrs}h {act_mins}m to {calculate_semester_week(act_date)}!")
                 st.rerun()
 
