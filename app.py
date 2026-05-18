@@ -26,18 +26,36 @@ def get_date_range_for_week(week_str):
     return start_date, end_date
 
 # --- GOOGLE SHEETS CONNECTION ---
+using_cloud_db = False
+df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+df_deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
+
 try:
     from streamlit_gsheets import GSheetsConnection
     conn = st.connection("gsheets", type=GSheetsConnection)
-    df_activities = conn.read(worksheet="Activities", ttl="0m")
-    df_deadlines = conn.read(worksheet="Deadlines", ttl="0m")
+    
+    # Try reading, if it fails because it's empty, we keep our blank schema dataframes
+    try:
+        df_activities = conn.read(worksheet="Activities", ttl="0m")
+        if df_activities.empty:
+            df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+    except Exception:
+        pass
+
+    try:
+        df_deadlines = conn.read(worksheet="Deadlines", ttl="0m")
+        if df_deadlines.empty:
+            df_deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
+    except Exception:
+        pass
+        
     using_cloud_db = True
-except Exception:
-    using_cloud_db = False
+except Exception as e:
+    # Fallback to pure session state if secrets are missing entirely
     if 'activities' not in st.session_state:
-        st.session_state.activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
+        st.session_state.activities = df_activities
     if 'deadlines' not in st.session_state:
-        st.session_state.deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
+        st.session_state.deadlines = df_deadlines
     df_activities = st.session_state.activities
     df_deadlines = st.session_state.deadlines
 
@@ -58,7 +76,7 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- PERSONALIZED HEADER (STRICT ONE-LINE FIT) ---
+# --- PERSONALIZED HEADER ---
 st.markdown("""
     <style>
         .personalized-header {
@@ -81,11 +99,11 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Alert user if they are using temporary or cloud database
+# Status Check Banner
 if using_cloud_db:
     st.success("🔒 Connected safely to your permanent Google Sheet database storage.")
 else:
-    st.warning("⚠️ Running on temporary session storage. Setup your Streamlit Secrets to connect Google Sheets permanently.")
+    st.warning("⚠️ Running on temporary session storage. Check your Streamlit Secrets.")
 
 # --- WEEK FILTER ---
 current_week_num = max(1, ((datetime.now().date() - SEMESTER_START).days // 7) + 1)
@@ -117,8 +135,7 @@ with col_input:
             total_mins = (act_hrs * 60) + act_mins
             if total_mins > 0:
                 if using_cloud_db:
-                    # Append rows directly to the cloud sheet database
-                    new_row = [str(act_date), act_course, act_type, total_mins, act_notes]
+                    new_row = [str(act_date), act_course, act_type, int(total_mins), act_notes]
                     conn.create(worksheet="Activities", data=[new_row], append=True)
                 else:
                     new_act = pd.DataFrame([[act_date, act_course, act_type, total_mins, act_notes]], columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
