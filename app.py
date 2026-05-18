@@ -29,29 +29,32 @@ def get_date_range_for_week(week_str):
 using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 
-# Construct the direct download link using your specific sheet credentials
 csv_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd9615Bse0q5Jg/export?format=csv&gid=1532866052"
 
 try:
     # Read the live sheet data directly using a standard web request
-    df_activities = pd.read_csv(csv_url)
+    df_raw = pd.read_csv(csv_url)
     
-    if df_activities is not None:
+    if df_raw is not None:
         using_cloud_db = True
-        # If the sheet is brand new and completely empty, force headers to be correct
-        if df_activities.empty or 'Date' not in df_activities.columns:
+        # Handle blank sheet configurations safely
+        if df_raw.empty or len(df_raw.columns) < 2:
             df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
         else:
-            # Ensure columns map perfectly to prevent calculation errors
-            df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
+            # Cleanly align incoming data columns
+            df_activities = df_raw.copy()
+            df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + list(df_raw.columns[6:])
 except Exception as e:
-    # Local fallback storage if offline
     if 'activities' not in st.session_state:
         st.session_state.activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
     df_activities = st.session_state.activities
 
-if not df_activities.empty and 'Date' in df_activities.columns:
-    df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
+# Clean up data column entries safely
+if not df_activities.empty:
+    try:
+        df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
+    except Exception:
+        pass
 
 # --- APP SIDEBAR ---
 st.sidebar.title("⚙️ Controls & Settings")
@@ -95,9 +98,12 @@ w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
 if not df_activities.empty and 'Date' in df_activities.columns:
-    df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
+    try:
+        df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
+    except Exception:
+        df_filtered_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 else:
-    df_filtered_activities = df_activities
+    df_filtered_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 
 # --- LAYOUT ---
 col_input, col_dash = st.columns([1, 2])
@@ -159,4 +165,3 @@ with col_dash:
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No activities logged in this week view yet.")
-    
