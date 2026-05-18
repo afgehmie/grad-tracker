@@ -36,17 +36,18 @@ try:
     
     try:
         df_activities = conn.read(worksheet="Activities", ttl="0m")
-        if df_activities.empty:
+        # Handle cases where read returns something with missing columns or completely empty text
+        if df_activities is None or df_activities.empty or 'Date' not in df_activities.columns:
             df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
     except Exception:
-        pass
+        df_activities = pd.DataFrame(columns=['Date', 'Course', 'Type', 'Duration', 'Notes'])
 
     try:
         df_deadlines = conn.read(worksheet="Deadlines", ttl="0m")
-        if df_deadlines.empty:
+        if df_deadlines is None or df_deadlines.empty:
             df_deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
     except Exception:
-        pass
+        df_deadlines = pd.DataFrame(columns=['Task', 'Course', 'Due Date', 'Priority', 'Weight', 'Status'])
         
     using_cloud_db = True
 except Exception as e:
@@ -57,7 +58,8 @@ except Exception as e:
     df_activities = st.session_state.activities
     df_deadlines = st.session_state.deadlines
 
-if not df_activities.empty:
+# Clean up date types for math filters
+if not df_activities.empty and 'Date' in df_activities.columns:
     df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
 
 # --- APP SIDEBAR ---
@@ -110,8 +112,7 @@ selected_week = st.selectbox("📅 Select Semester Week View:", options=availabl
 w_start, w_end = get_date_range_for_week(selected_week)
 st.info(f"📆 Metrics for **{selected_week}** ({w_start.strftime('%B %d')} to {w_end.strftime('%B %d, %Y')})")
 
-if not df_activities.empty:
-    # Ensure date comparisons are clean
+if not df_activities.empty and 'Date' in df_activities.columns:
     df_activities['Date'] = pd.to_datetime(df_activities['Date']).dt.date
     df_filtered_activities = df_activities[(df_activities['Date'] >= w_start) & (df_activities['Date'] <= w_end)]
 else:
@@ -133,19 +134,27 @@ with col_input:
         if st.form_submit_button("Log Activity"):
             total_mins = (act_hrs * 60) + act_mins
             if total_mins > 0:
-                # Format exactly as a structured DataFrame row to completely prevent the TypeError
-                new_act_df = pd.DataFrame([{
+                # Format exactly as a structured dictionary row
+                new_row = {
                     'Date': str(act_date),
                     'Course': act_course,
                     'Type': act_type,
                     'Duration': int(total_mins),
                     'Notes': act_notes
-                }])
+                }
                 
                 if using_cloud_db:
-                    # Append the safely structured DataFrame row directly to Google Sheets
-                    conn.create(worksheet="Activities", data=new_act_df, append=True)
+                    # Clear out date conversion formats before modifying the full dataframe
+                    if not df_activities.empty:
+                        df_activities['Date'] = df_activities['Date'].astype(str)
+                    
+                    # Standard Python concat operation
+                    updated_df = pd.concat([df_activities, pd.DataFrame([new_row])], ignore_index=True)
+                    
+                    # Update the Google sheet by overwriting it completely with the newly extended DataFrame
+                    conn.update(worksheet="Activities", data=updated_df)
                 else:
+                    new_act_df = pd.DataFrame([new_row])
                     df_activities = pd.concat([df_activities, new_act_df], ignore_index=True)
                     st.session_state.activities = df_activities
                     
