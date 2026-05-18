@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
-import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
+from streamlit_gsheets import GSheetsConnection
 
 st.set_page_config(page_title="AFG Tracker - KDI School", layout="wide", initial_sidebar_state="expanded")
 
@@ -26,37 +26,24 @@ def get_date_range_for_week(week_str):
     end_date = start_date + timedelta(days=6)
     return start_date, end_date
 
-# --- UNBLOCKABLE ATOM FEED CONNECTION ---
+# --- NATIVE OFFICIAL GOOGLE SHEETS CONNECTION ---
 using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 
-# Public Atom feed for your specific Sheet ID
-feed_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd9615Bse0q5Jg/feeds/worksheets/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd9615Bse0q5Jg/public/basic"
-csv_fallback_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd9615Bse0q5Jg/export?format=csv&gid=1532866052"
-
 try:
-    # Attempt clean direct CSV parsing first
-    df_raw = pd.read_csv(csv_fallback_url)
+    # Establish official Streamlit connection to your Google Sheet secret
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # Read the specific 'Form Responses 1' tab via its native string name
+    df_raw = conn.read(worksheet="Form Responses 1", ttl="0m")
+    
     if df_raw is not None and not df_raw.empty:
         df_activities = df_raw.copy()
+        # Clean and standardize headers to match our tracking engine perfectly
         df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + list(df_raw.columns[6:])
         using_cloud_db = True
-except Exception:
-    # If Google blocks the direct CSV download, scrape the sheet rows via public web request headers
-    try:
-        response = requests.get(csv_fallback_url, headers={"User-Agent": "Mozilla/5.0"})
-        if response.status_code == 200:
-            from io import StringIO
-            df_raw = pd.read_csv(StringIO(response.text))
-            if df_raw is not None and not df_raw.empty:
-                df_activities = df_raw.copy()
-                df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + list(df_raw.columns[6:])
-                using_cloud_db = True
-    except Exception:
-        pass
-
-# Fallback back to local state memory if both channels fail network responses
-if not using_cloud_db:
+except Exception as e:
+    # Silent structural backup to local state tracking if network times out
     if 'activities' not in st.session_state:
         st.session_state.activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
     df_activities = st.session_state.activities
@@ -64,6 +51,7 @@ if not using_cloud_db:
 # --- DATETIME PARSING ENGINE ---
 if not df_activities.empty and 'Date' in df_activities.columns:
     try:
+        # Standardize sheet slashes (5/18/2026) safely into clean python date filters
         df_activities['Date'] = pd.to_datetime(df_activities['Date'], errors='coerce').dt.date
     except Exception:
         pass
@@ -96,9 +84,9 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Visual feedback banner
+# Permanent Connection Notice
 if using_cloud_db:
-    st.success("🔒 Connected safely to your permanent Google Sheet database storage layer.")
+    st.success("🔒 Connected safely via pre-authorized Google Gateway channel.")
 else:
     st.warning("⚠️ Running on temporary session fallback logic.")
 
@@ -118,7 +106,7 @@ if not df_activities.empty and 'Date' in df_activities.columns:
 else:
     df_filtered_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 
-# --- LAYOUT ---
+# --- LAYOUT INTERFACE ---
 col_input, col_dash = st.columns([1, 2])
 
 with col_input:
