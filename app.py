@@ -47,7 +47,7 @@ try:
             df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'][:len(df_activities.columns)]
             using_cloud_db = True
     else:
-        connection_error = f"Google Cloud responded with status: {response.status_code}. Double check your Sheet's 'Publish to web' settings."
+        connection_error = f"Google Cloud responded with status: {response.status_code}."
 except Exception as e:
     connection_error = str(e)
 
@@ -77,33 +77,43 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- REVISED DESIGNER HEADERS ---
+# --- REVISED SINGLE LINE HEADER ---
 st.markdown("""
     <style>
         .main-header {
-            text-align: center; font-family: 'Inter', sans-serif; font-weight: 800; color: white;
-            white-space: nowrap; overflow: hidden; padding-top: 15px;
-            font-size: clamp(1.2rem, 2.5vw, 2.2rem); letter-spacing: -0.5px;
+            text-align: center; 
+            font-family: 'Inter', sans-serif; 
+            font-weight: 800; 
+            color: white;
+            white-space: nowrap; 
+            overflow: hidden; 
+            padding: 15px 0 5px 0;
+            font-size: clamp(1.1rem, 2.3vw, 1.9rem); 
+            letter-spacing: -0.5px;
         }
-        .sub-header {
-            text-align: center; font-family: 'Inter', sans-serif; font-weight: 500; color: #94a3b8;
-            margin-top: -5px; padding-bottom: 10px;
-            font-size: clamp(0.8rem, 1.5vw, 1.2rem); white-space: nowrap;
-        }
-        /* Custom High Visibility Metric Styling */
         .metric-box {
-            background-color: #1e293b; border-radius: 10px; padding: 20px; 
-            text-align: center; border: 1px solid #334155; margin-bottom: 15px;
+            background-color: #1e293b; 
+            border-radius: 10px; 
+            padding: 24px; 
+            text-align: center; 
+            border: 1px solid #334155; 
+            margin-bottom: 15px;
         }
         .metric-val {
-            font-size: 3rem !important; font-weight: 800 !important; color: #38bdf8 !important; line-height: 1;
+            font-size: 3.2rem !important; 
+            font-weight: 800 !important; 
+            color: #38bdf8 !important; 
+            line-height: 1.1;
         }
         .metric-lbl {
-            font-size: 1.1rem !important; color: #94a3b8 !important; font-weight: 600; margin-top: 5px;
+            font-size: 1.1rem !important; 
+            color: #94a3b8 !important; 
+            font-weight: 600; 
+            margin-top: 8px;
+            letter-spacing: 0.5px;
         }
     </style>
     <div class='main-header'>Archie's Coursework Tracking System - KDI School</div>
-    <div class='sub-header'>Archie's Coursework Tracking System - KDI School</div>
     """, unsafe_allow_html=True)
 st.write("---")
 
@@ -186,8 +196,8 @@ with col_dash:
     
     st.markdown(f"""
         <div class='metric-box'>
-            <div class='metric-val'>{total_hours:.1f} / {target_hours} <span style='font-size: 1.5rem; color: {variance_color}; font-weight:600;'>({variance_sign}{variance_hours:.1f} hrs)</span></div>
-            <div class='metric-lbl'>TOTAL SEMESTER HOURS COMMITTED VS. RUNNING WEEKLY TARGET</div>
+            <div class='metric-val'>{total_hours:.1f} / {target_hours} <span style='font-size: 1.7rem; color: {variance_color}; font-weight:700;'>({variance_sign}{variance_hours:.1f} hrs)</span></div>
+            <div class='metric-lbl'>TOTAL HOURS COMMITTED VS. RUNNING WEEKLY TARGET</div>
         </div>
     """, unsafe_allow_html=True)
     
@@ -207,7 +217,6 @@ with col_dash:
             y='Hours', 
             color='Type', 
             template="plotly_dark", 
-            title=f"Velocity Distribution Breakdown: {selected_week}",
             labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
         )
         
@@ -215,19 +224,20 @@ with col_dash:
         fig.update_layout(
             barmode='stack',
             xaxis_tickangle=-15,
-            font=dict(size=14),  # Scales fundamental base components upward
+            font=dict(size=14),
             xaxis=dict(
                 tickfont=dict(size=14, family='Inter', color='white'),
-                titlefont=dict(size=16, bold=True)
+                titlefont=dict(size=15, bold=True)
             ),
             yaxis=dict(
                 tickfont=dict(size=14, color='white'),
-                titlefont=dict(size=16, bold=True)
+                titlefont=dict(size=15, bold=True)
             ),
             legend=dict(
                 font=dict(size=13),
-                title=dict(font=dict(size=15, bold=True))
-            )
+                title=dict(font=dict(size=14, bold=True))
+            ),
+            margin=dict(l=20, r=20, t=20, b=60)
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
