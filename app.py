@@ -77,7 +77,7 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- REVISED ADVANCED DESIGNER STYLE SHEET ---
+# --- CUSTOM CSS INTERFACE ---
 st.markdown("""
     <style>
         .main-header {
@@ -112,13 +112,21 @@ st.markdown("""
             margin-top: 6px;
             letter-spacing: 0.5px;
         }
-        /* ENHANCED VISIBILITY: Scales up the physical tracking bar height directly */
+        
+        /* TARGETED SYSTEM PROGRESS BAR SCALING */
         div[data-testid="stProgress"] > div > div {
-            height: 28px !important;
-            border-radius: 6px !important;
+            height: 35px !important;
+            border-radius: 8px !important;
+            background-color: #0284c7 !important;
+        }
+        div[data-testid="stProgress"] > div {
+            background-color: #334155 !important;
+            border-radius: 8px !important;
+            height: 35px !important;
         }
         div[data-testid="stProgress"] {
-            padding-bottom: 15px !important;
+            margin-top: 10px !important;
+            margin-bottom: 25px !important;
         }
     </style>
     <div class='main-header'>Archie's Coursework Tracking System - KDI School</div>
@@ -209,7 +217,7 @@ with col_dash:
         </div>
     """, unsafe_allow_html=True)
     
-    # Expanded High-Visibility Horizontal Tracking Bar
+    # Thicker Progress Bar Interface
     completion_rate = min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0
     st.progress(completion_rate)
     
@@ -228,23 +236,14 @@ with col_dash:
             labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
         )
         
-        # FIXED: Resolved missing separation comma error on line 224
+        # FIXED: Streamlined clean Plotly dictionary configurations to avoid multi-line layout crashes
         fig.update_layout(
             barmode='stack',
             xaxis_tickangle=-15,
             font=dict(size=14),
-            xaxis=dict(
-                tickfont=dict(size=14, family='Inter', color='white'),
-                titlefont=dict(size=15, bold=True)
-            ),
-            yaxis=dict(
-                tickfont=dict(size=14, color='white'),
-                titlefont=dict(size=15, bold=True)
-            ),
-            legend=dict(
-                font=dict(size=13),
-                title=dict(font=dict(size=14, bold=True))
-            ),
+            xaxis=dict(tickfont=dict(size=14, family='Inter', color='white'), titlefont=dict(size=15, bold=True)),
+            yaxis=dict(tickfont=dict(size=14, color='white'), titlefont=dict(size=15, bold=True)),
+            legend=dict(font=dict(size=13), title=dict(font=dict(size=14, bold=True))),
             margin=dict(l=20, r=20, t=20, b=60)
         )
         st.plotly_chart(fig, use_container_width=True)
