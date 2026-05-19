@@ -44,7 +44,6 @@ try:
         df_raw = pd.read_csv(StringIO(response.text))
         if df_raw is not None and not df_raw.empty:
             df_activities = df_raw.copy()
-            # Match frameworks perfectly across your database sheet columns
             df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'][:len(df_activities.columns)]
             using_cloud_db = True
     else:
@@ -78,18 +77,34 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- REVISED DESIGNER HEADER ---
+# --- REVISED DESIGNER HEADERS ---
 st.markdown("""
     <style>
-        .personalized-header {
-            text-align: center; font-family: 'Inter', sans-serif; font-weight: 700; color: white;
-            white-space: nowrap; overflow: hidden; padding: 10px 0;
-            font-size: clamp(0.9rem, 2.2vw, 1.7rem); letter-spacing: -0.5px;
+        .main-header {
+            text-align: center; font-family: 'Inter', sans-serif; font-weight: 800; color: white;
+            white-space: nowrap; overflow: hidden; padding-top: 15px;
+            font-size: clamp(1.2rem, 2.5vw, 2.2rem); letter-spacing: -0.5px;
+        }
+        .sub-header {
+            text-align: center; font-family: 'Inter', sans-serif; font-weight: 500; color: #94a3b8;
+            margin-top: -5px; padding-bottom: 10px;
+            font-size: clamp(0.8rem, 1.5vw, 1.2rem); white-space: nowrap;
+        }
+        /* Custom High Visibility Metric Styling */
+        .metric-box {
+            background-color: #1e293b; border-radius: 10px; padding: 20px; 
+            text-align: center; border: 1px solid #334155; margin-bottom: 15px;
+        }
+        .metric-val {
+            font-size: 3rem !important; font-weight: 800 !important; color: #38bdf8 !important; line-height: 1;
+        }
+        .metric-lbl {
+            font-size: 1.1rem !important; color: #94a3b8 !important; font-weight: 600; margin-top: 5px;
         }
     </style>
-    <div class='personalized-header'>Archie's Coursework Tracking System - KDI School</div>
+    <div class='main-header'>Archie's Coursework Tracking System - KDI School</div>
+    <div class='sub-header'>Archie's Coursework Tracking System - KDI School</div>
     """, unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
 if using_cloud_db:
@@ -162,18 +177,30 @@ with col_dash:
     else:
         total_hours = 0.0
     
-    st.subheader(f"📊 {selected_week} Matrix")
-    st.metric("Hours Tracked", f"{total_hours:.1f} hrs", f"{total_hours - target_hours:.1f} vs Target")
-    st.progress(min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0)
+    st.subheader(f"📊 {selected_week} Performance Engine")
+    
+    # Large High-Visibility Metric Card Block
+    variance_hours = total_hours - target_hours
+    variance_color = "#4ade80" if variance_hours >= 0 else "#f87171"
+    variance_sign = "+" if variance_hours >= 0 else ""
+    
+    st.markdown(f"""
+        <div class='metric-box'>
+            <div class='metric-val'>{total_hours:.1f} / {target_hours} <span style='font-size: 1.5rem; color: {variance_color}; font-weight:600;'>({variance_sign}{variance_hours:.1f} hrs)</span></div>
+            <div class='metric-lbl'>TOTAL SEMESTER HOURS COMMITTED VS. RUNNING WEEKLY TARGET</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Expanded High-Visibility Horizontal Tracking Bar
+    completion_rate = min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0
+    st.progress(completion_rate)
     
     st.write("---")
     st.subheader(f"📚 Time Accumulated Per Course & Activity Type")
     if not df_filtered_activities.empty and total_hours > 0:
-        # Group metrics across both parameters to render segmented breakdowns
         df_chart = df_filtered_activities.groupby(['Course', 'Type'])['Duration'].sum().reset_index()
         df_chart['Hours'] = df_chart['Duration'] / 60
         
-        # Color parameter assigned to 'Type' splits your course bars into stacked segments
         fig = px.bar(
             df_chart, 
             x='Course', 
@@ -183,8 +210,25 @@ with col_dash:
             title=f"Velocity Distribution Breakdown: {selected_week}",
             labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
         )
-        # Update styling layout to ensure clean text readability
-        fig.update_layout(barmode='stack', xaxis_tickangle=-15)
+        
+        # INCREASED VISIBILITY: Text size modifications for Chart Axes, Labels, and Legend details
+        fig.update_layout(
+            barmode='stack',
+            xaxis_tickangle=-15,
+            font=dict(size=14),  # Scales fundamental base components upward
+            xaxis=dict(
+                tickfont=dict(size=14, family='Inter', color='white'),
+                titlefont=dict(size=16, bold=True)
+            ),
+            yaxis=dict(
+                tickfont=dict(size=14, color='white'),
+                titlefont=dict(size=16, bold=True)
+            ),
+            legend=dict(
+                font=dict(size=13),
+                title=dict(font=dict(size=15, bold=True))
+            )
+        )
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No activities logged in this week view yet.")
