@@ -77,7 +77,7 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- REVISED HEADERS & ADVANCED ENHANCED PROGRESS BAR CSS ---
+# --- REVISED SINGLE LINE HEADER & PHYSICAL PROGRESS BAR CSS TARGETING ---
 st.markdown("""
     <style>
         .main-header {
@@ -113,26 +113,24 @@ st.markdown("""
             letter-spacing: 0.5px;
         }
         
-        /* TARGETING BOTH THE BASE TRACK AND THE INNER BLUE FILLING PROGRESS BAR ELEMENT */
+        /* HARD-TARGETING STPROGRESS DOM NODE TO GROW THE INNER BLUE FILL BAR AND OUTER TRACK */
         div[data-testid="stProgress"] {
-            height: 32px !important;
-            background-color: #1e293b !important;
+            height: 35px !important;
+            background-color: #0f172a !important;
             border-radius: 8px !important;
-            overflow: hidden !important;
-            padding: 0 !important;
+            padding: 0px !important;
             margin-top: 15px !important;
             margin-bottom: 25px !important;
             border: 1px solid #334155 !important;
         }
         div[data-testid="stProgress"] > div {
-            height: 32px !important;
-            background-color: #1e293b !important;
+            height: 35px !important;
+            background-color: transparent !important;
         }
         div[data-testid="stProgress"] > div > div {
-            height: 32px !important;
+            height: 35px !important;
             background-color: #0284c7 !important;
-            border-radius: 6px 0px 0px 6px !important;
-            transition: width 0.6s ease !important;
+            border-radius: 7px !important;
         }
     </style>
     <div class='main-header'>Archie's Coursework Tracking System - KDI School</div>
@@ -223,7 +221,7 @@ with col_dash:
         </div>
     """, unsafe_allow_html=True)
     
-    # Thicker Progress Bar Interface
+    # Large High-Visibility Physical Progress Tracking Bar Interface
     completion_rate = min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0
     st.progress(completion_rate)
     
@@ -242,7 +240,7 @@ with col_dash:
             labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
         )
         
-        # FIXED: Converted layout keywords into direct function parameters to eliminate Plotly multi-line dictionary crash
+        # CORRECTED PLOTLY LAYOUT ENGINE CONFIGURATION
         fig.update_layout(
             barmode='stack',
             xaxis_tickangle=-15,
@@ -250,10 +248,7 @@ with col_dash:
             xaxis=dict(tickfont=dict(size=14, family='Inter', color='white'), titlefont=dict(size=15, bold=True)),
             yaxis=dict(tickfont=dict(size=14, color='white'), titlefont=dict(size=15, bold=True)),
             legend=dict(font=dict(size=13), title=dict(font=dict(size=14, bold=True))),
-            margin_l=20,
-            margin_r=20,
-            margin_t=20,
-            margin_b=60
+            margin=dict(l=20, r=20, t=20, b=60)
         )
         st.plotly_chart(fig, use_container_width=True)
     else:
