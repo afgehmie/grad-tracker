@@ -31,22 +31,19 @@ using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 connection_error = None
 
-# Pure CSV Export link pointing explicitly to your data grid (gid=1532866052)
-csv_target_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd9615Bse0q5Jg/export?format=csv&gid=1532866052"
+# Corrected URL mapping directly to your true spreadsheet ID and Form Responses sheet tab
+csv_target_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd96T55se0q5Jg/export?format=csv&gid=1532866052"
 
 try:
-    # Use a secure browser identity header to completely bypass server screening blocks
     browser_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     response = requests.get(csv_target_url, headers=browser_headers, timeout=10)
     
     if response.status_code == 200:
-        # Convert web text data into a readable tabular grid matrix
         df_raw = pd.read_csv(StringIO(response.text))
         if df_raw is not None and not df_raw.empty:
             df_activities = df_raw.copy()
-            # Enforce clean exact header text alignments
             df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
             using_cloud_db = True
     else:
@@ -54,7 +51,6 @@ try:
 except Exception as e:
     connection_error = str(e)
 
-# Local session fallback memory backup if web pipes drop out
 if not using_cloud_db:
     if 'activities' not in st.session_state:
         st.session_state.activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
@@ -95,7 +91,6 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Dynamic State Banner Alerts
 if using_cloud_db:
     st.success("🔒 Connected safely to your permanent Google Sheet database storage layer.")
 else:
