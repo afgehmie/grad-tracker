@@ -31,8 +31,8 @@ using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 connection_error = None
 
-# Corrected URL mapping directly to your true spreadsheet ID and Form Responses sheet tab
-csv_target_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd96T55se0q5Jg/export?format=csv&gid=1532866052"
+# Using the universal web publisher endpoint for your exact sheet ID
+csv_target_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd96T55se0q5Jg/pub?output=csv"
 
 try:
     browser_headers = {
@@ -44,10 +44,11 @@ try:
         df_raw = pd.read_csv(StringIO(response.text))
         if df_raw is not None and not df_raw.empty:
             df_activities = df_raw.copy()
+            # Dynamically map whatever columns are pulled directly to your 6 framework headers
             df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
             using_cloud_db = True
     else:
-        connection_error = f"Google Server responded with HTTP Status Code {response.status_code}"
+        connection_error = f"Google Security blocked the link read request (Status Code: {response.status_code}). Please re-save your Sheet's 'Share' settings."
 except Exception as e:
     connection_error = str(e)
 
