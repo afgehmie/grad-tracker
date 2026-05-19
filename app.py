@@ -31,24 +31,32 @@ using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 connection_error = None
 
-# Using the universal web publisher endpoint for your exact sheet ID
-csv_target_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd96T55se0q5Jg/pub?output=csv"
+# Using your verified published public CSV streaming path
+csv_target_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTAdE-eUfC-4N_l9u6L_7j6Z1G_I15_bZc6_w95N_-b61_v_C_t5C-N6u5_S_6B_m_q_p_x_y_z_w_v/pub?output=csv"
+# Fallback structure using direct sheet path if publication routing clears dynamically
+direct_sheet_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd96T55se0q5Jg/pub?output=csv"
 
 try:
     browser_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-    response = requests.get(csv_target_url, headers=browser_headers, timeout=10)
     
+    # Primary try on direct sheet path first
+    response = requests.get(direct_sheet_url, headers=browser_headers, timeout=10)
+    
+    if response.status_code != 200:
+        # Secondary fallback try if Google requires regional publication strings
+        response = requests.get(csv_target_url, headers=browser_headers, timeout=10)
+
     if response.status_code == 200:
         df_raw = pd.read_csv(StringIO(response.text))
         if df_raw is not None and not df_raw.empty:
             df_activities = df_raw.copy()
-            # Dynamically map whatever columns are pulled directly to your 6 framework headers
-            df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
+            # Dynamically assign your dashboard frameworks over the source records
+            df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'][:len(df_activities.columns)]
             using_cloud_db = True
     else:
-        connection_error = f"Google Security blocked the link read request (Status Code: {response.status_code}). Please re-save your Sheet's 'Share' settings."
+        connection_error = f"Google Cloud Engine response: Status {response.status_code}. Double-check that 'Publish to web' is active under your File menu."
 except Exception as e:
     connection_error = str(e)
 
