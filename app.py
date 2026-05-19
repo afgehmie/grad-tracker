@@ -88,7 +88,7 @@ st.markdown("""
             white-space: nowrap; 
             overflow: hidden; 
             padding: 10px 0 5px 0;
-            font-size: clamp(1.2rem, 2.2vw, 1.85rem); 
+            font-size: clamp(1.1rem, 2.1vw, 1.8rem); 
             letter-spacing: -0.5px;
         }
         .metric-box {
@@ -113,9 +113,9 @@ st.markdown("""
             letter-spacing: 0.5px;
         }
         
-        /* HARD-TARGETING STPROGRESS DOM NODE TO GROW THE INNER BLUE FILL BAR AND OUTER TRACK */
+        /* FORCING BOTH THE HOUSING BAR TRACK AND THE ACTUAL BLUE FILL BAR TO EXPAND TOGETHER */
         div[data-testid="stProgress"] {
-            height: 35px !important;
+            height: 38px !important;
             background-color: #0f172a !important;
             border-radius: 8px !important;
             padding: 0px !important;
@@ -124,13 +124,13 @@ st.markdown("""
             border: 1px solid #334155 !important;
         }
         div[data-testid="stProgress"] > div {
-            height: 35px !important;
+            height: 38px !important;
             background-color: transparent !important;
         }
         div[data-testid="stProgress"] > div > div {
-            height: 35px !important;
+            height: 38px !important;
             background-color: #0284c7 !important;
-            border-radius: 7px !important;
+            border-radius: 6px !important;
         }
     </style>
     <div class='main-header'>Archie's Coursework Tracking System - KDI School</div>
@@ -240,7 +240,7 @@ with col_dash:
             labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
         )
         
-        # CORRECTED PLOTLY LAYOUT ENGINE CONFIGURATION
+        # CORRECTED STANDARD PLOTLY CONFIGURATION OBJECT PATHWAYS
         fig.update_layout(
             barmode='stack',
             xaxis_tickangle=-15,
