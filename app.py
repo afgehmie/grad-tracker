@@ -44,10 +44,11 @@ try:
         df_raw = pd.read_csv(StringIO(response.text))
         if df_raw is not None and not df_raw.empty:
             df_activities = df_raw.copy()
+            # Match frameworks perfectly across your database sheet columns
             df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'][:len(df_activities.columns)]
             using_cloud_db = True
     else:
-        connection_error = f"Google Cloud responded with status: {response.status_code}."
+        connection_error = f"Google Cloud responded with status: {response.status_code}. Double check your Sheet's 'Publish to web' settings."
 except Exception as e:
     connection_error = str(e)
 
@@ -77,64 +78,18 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- REVISED SINGLE LINE HEADER & PHYSICAL PROGRESS BAR CSS TARGETING ---
+# --- REVISED DESIGNER HEADER ---
 st.markdown("""
     <style>
-        .main-header {
-            text-align: center; 
-            font-family: 'Inter', sans-serif; 
-            font-weight: 800; 
-            color: white;
-            white-space: nowrap; 
-            overflow: hidden; 
-            padding: 10px 0 5px 0;
-            font-size: clamp(1.1rem, 2.1vw, 1.8rem); 
-            letter-spacing: -0.5px;
-        }
-        .metric-box {
-            background-color: #1e293b; 
-            border-radius: 10px; 
-            padding: 20px; 
-            text-align: center; 
-            border: 1px solid #334155; 
-            margin-bottom: 15px;
-        }
-        .metric-val {
-            font-size: 2.8rem !important; 
-            font-weight: 800 !important; 
-            color: #38bdf8 !important; 
-            line-height: 1.1;
-        }
-        .metric-lbl {
-            font-size: 1.0rem !important; 
-            color: #94a3b8 !important; 
-            font-weight: 600; 
-            margin-top: 6px;
-            letter-spacing: 0.5px;
-        }
-        
-        /* FORCING BOTH THE HOUSING BAR TRACK AND THE ACTUAL BLUE FILL BAR TO EXPAND TOGETHER */
-        div[data-testid="stProgress"] {
-            height: 38px !important;
-            background-color: #0f172a !important;
-            border-radius: 8px !important;
-            padding: 0px !important;
-            margin-top: 15px !important;
-            margin-bottom: 25px !important;
-            border: 1px solid #334155 !important;
-        }
-        div[data-testid="stProgress"] > div {
-            height: 38px !important;
-            background-color: transparent !important;
-        }
-        div[data-testid="stProgress"] > div > div {
-            height: 38px !important;
-            background-color: #0284c7 !important;
-            border-radius: 6px !important;
+        .personalized-header {
+            text-align: center; font-family: 'Inter', sans-serif; font-weight: 700; color: white;
+            white-space: nowrap; overflow: hidden; padding: 10px 0;
+            font-size: clamp(0.9rem, 2.2vw, 1.7rem); letter-spacing: -0.5px;
         }
     </style>
-    <div class='main-header'>Archie's Coursework Tracking System - KDI School</div>
+    <div class='personalized-header'>Archie's Coursework Tracking System - KDI School</div>
     """, unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
 if using_cloud_db:
@@ -207,49 +162,29 @@ with col_dash:
     else:
         total_hours = 0.0
     
-    st.subheader(f"📊 {selected_week} Performance Engine")
-    
-    # Large High-Visibility Metric Card Block
-    variance_hours = total_hours - target_hours
-    variance_color = "#4ade80" if variance_hours >= 0 else "#f87171"
-    variance_sign = "+" if variance_hours >= 0 else ""
-    
-    st.markdown(f"""
-        <div class='metric-box'>
-            <div class='metric-val'>{total_hours:.1f} / {target_hours} <span style='font-size: 1.6rem; color: {variance_color}; font-weight:700;'>({variance_sign}{variance_hours:.1f} hrs)</span></div>
-            <div class='metric-lbl'>TOTAL HOURS COMMITTED VS. RUNNING WEEKLY TARGET</div>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Large High-Visibility Physical Progress Tracking Bar Interface
-    completion_rate = min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0
-    st.progress(completion_rate)
+    st.subheader(f"📊 {selected_week} Matrix")
+    st.metric("Hours Tracked", f"{total_hours:.1f} hrs", f"{total_hours - target_hours:.1f} vs Target")
+    st.progress(min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0)
     
     st.write("---")
     st.subheader(f"📚 Time Accumulated Per Course & Activity Type")
     if not df_filtered_activities.empty and total_hours > 0:
+        # Group metrics across both parameters to render segmented breakdowns
         df_chart = df_filtered_activities.groupby(['Course', 'Type'])['Duration'].sum().reset_index()
         df_chart['Hours'] = df_chart['Duration'] / 60
         
+        # Color parameter assigned to 'Type' splits your course bars into stacked segments
         fig = px.bar(
             df_chart, 
             x='Course', 
             y='Hours', 
             color='Type', 
             template="plotly_dark", 
+            title=f"Velocity Distribution Breakdown: {selected_week}",
             labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
         )
-        
-        # CORRECTED STANDARD PLOTLY CONFIGURATION OBJECT PATHWAYS
-        fig.update_layout(
-            barmode='stack',
-            xaxis_tickangle=-15,
-            font=dict(size=14),
-            xaxis=dict(tickfont=dict(size=14, family='Inter', color='white'), titlefont=dict(size=15, bold=True)),
-            yaxis=dict(tickfont=dict(size=14, color='white'), titlefont=dict(size=15, bold=True)),
-            legend=dict(font=dict(size=13), title=dict(font=dict(size=14, bold=True))),
-            margin=dict(l=20, r=20, t=20, b=60)
-        )
+        # Update styling layout to ensure clean text readability
+        fig.update_layout(barmode='stack', xaxis_tickangle=-15)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No activities logged in this week view yet.")
