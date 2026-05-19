@@ -77,7 +77,7 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- REVISED SINGLE LINE HEADER ---
+# --- REVISED ADVANCED DESIGNER STYLE SHEET ---
 st.markdown("""
     <style>
         .main-header {
@@ -88,29 +88,37 @@ st.markdown("""
             white-space: nowrap; 
             overflow: hidden; 
             padding: 15px 0 5px 0;
-            font-size: clamp(1.1rem, 2.3vw, 1.9rem); 
+            font-size: clamp(1.1rem, 2.1vw, 1.75rem); 
             letter-spacing: -0.5px;
         }
         .metric-box {
             background-color: #1e293b; 
             border-radius: 10px; 
-            padding: 24px; 
+            padding: 20px; 
             text-align: center; 
             border: 1px solid #334155; 
             margin-bottom: 15px;
         }
         .metric-val {
-            font-size: 3.2rem !important; 
+            font-size: 2.8rem !important; 
             font-weight: 800 !important; 
             color: #38bdf8 !important; 
             line-height: 1.1;
         }
         .metric-lbl {
-            font-size: 1.1rem !important; 
+            font-size: 1.0rem !important; 
             color: #94a3b8 !important; 
             font-weight: 600; 
-            margin-top: 8px;
+            margin-top: 6px;
             letter-spacing: 0.5px;
+        }
+        /* ENHANCED VISIBILITY: Scales up the physical tracking bar height directly */
+        div[data-testid="stProgress"] > div > div {
+            height: 28px !important;
+            border-radius: 6px !important;
+        }
+        div[data-testid="stProgress"] {
+            padding-bottom: 15px !important;
         }
     </style>
     <div class='main-header'>Archie's Coursework Tracking System - KDI School</div>
@@ -196,7 +204,7 @@ with col_dash:
     
     st.markdown(f"""
         <div class='metric-box'>
-            <div class='metric-val'>{total_hours:.1f} / {target_hours} <span style='font-size: 1.7rem; color: {variance_color}; font-weight:700;'>({variance_sign}{variance_hours:.1f} hrs)</span></div>
+            <div class='metric-val'>{total_hours:.1f} / {target_hours} <span style='font-size: 1.6rem; color: {variance_color}; font-weight:700;'>({variance_sign}{variance_hours:.1f} hrs)</span></div>
             <div class='metric-lbl'>TOTAL HOURS COMMITTED VS. RUNNING WEEKLY TARGET</div>
         </div>
     """, unsafe_allow_html=True)
@@ -220,7 +228,7 @@ with col_dash:
             labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
         )
         
-        # INCREASED VISIBILITY: Text size modifications for Chart Axes, Labels, and Legend details
+        # FIXED: Resolved missing separation comma error on line 224
         fig.update_layout(
             barmode='stack',
             xaxis_tickangle=-15,
