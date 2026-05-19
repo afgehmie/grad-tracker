@@ -16,7 +16,7 @@ def calculate_semester_week(input_date):
     days_difference = (input_date - SEMESTER_START).days
     if days_difference < 0:
         return "Pre-Semester"
-    return f"f'Week { (days_difference // 7) + 1 }'"
+    return f"Week { (days_difference // 7) + 1 }"
 
 def get_date_range_for_week(week_str):
     if "Week" not in week_str:
@@ -78,7 +78,7 @@ if 'courses' not in st.session_state:
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
 
-# --- PERSONALIZED HEADER ---
+# --- REVISED DESIGNER HEADER ---
 st.markdown("""
     <style>
         .personalized-header {
@@ -87,7 +87,7 @@ st.markdown("""
             font-size: clamp(0.9rem, 2.2vw, 1.7rem); letter-spacing: -0.5px;
         }
     </style>
-    <div class='personalized-header'>Archie's Coursework and Progress Tracker - KDI School</div>
+    <div class='personalized-header'>Archie's Coursework Tracking System - KDI School</div>
     """, unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
@@ -167,11 +167,24 @@ with col_dash:
     st.progress(min(total_hours / target_hours, 1.0) if target_hours > 0 else 0.0)
     
     st.write("---")
-    st.subheader(f"📚 Time Accumulated Per Course")
+    st.subheader(f"📚 Time Accumulated Per Course & Activity Type")
     if not df_filtered_activities.empty and total_hours > 0:
-        df_chart = df_filtered_activities.groupby('Course')['Duration'].sum().reset_index()
+        # Group metrics across both parameters to render segmented breakdowns
+        df_chart = df_filtered_activities.groupby(['Course', 'Type'])['Duration'].sum().reset_index()
         df_chart['Hours'] = df_chart['Duration'] / 60
-        fig = px.bar(df_chart, x='Course', y='Hours', color='Course', template="plotly_dark", title=f"Study Velocity: {selected_week}")
+        
+        # Color parameter assigned to 'Type' splits your course bars into stacked segments
+        fig = px.bar(
+            df_chart, 
+            x='Course', 
+            y='Hours', 
+            color='Type', 
+            template="plotly_dark", 
+            title=f"Velocity Distribution Breakdown: {selected_week}",
+            labels={"Hours": "Total Study Hours", "Type": "Activity Allocation"}
+        )
+        # Update styling layout to ensure clean text readability
+        fig.update_layout(barmode='stack', xaxis_tickangle=-15)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No activities logged in this week view yet.")
