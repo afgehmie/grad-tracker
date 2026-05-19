@@ -35,12 +35,13 @@ try:
     # Establish official Streamlit connection
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # Read the data sheet
-    df_raw = conn.read(worksheet="Form Responses 1", ttl="0m")
+    # Read the data sheet using the exact URL provided in secrets
+    df_raw = conn.read(ttl="0m")
     
     if df_raw is not None and not df_raw.empty:
         df_activities = df_raw.copy()
-        df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + list(df_raw.columns[6:])
+        # Enforce exact column names for your 6 spreadsheet columns
+        df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes']
         using_cloud_db = True
 except Exception as e:
     connection_error = str(e)
@@ -83,7 +84,7 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Error Diagnostics Banner
+# Connection Status Banner
 if using_cloud_db:
     st.success("🔒 Connected safely via pre-authorized Google Gateway channel.")
 else:
