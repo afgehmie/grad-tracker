@@ -16,7 +16,7 @@ def calculate_semester_week(input_date):
     days_difference = (input_date - SEMESTER_START).days
     if days_difference < 0:
         return "Pre-Semester"
-    return f"Week { (days_difference // 7) + 1 }"
+    return f"f'Week { (days_difference // 7) + 1 }'"
 
 def get_date_range_for_week(week_str):
     if "Week" not in week_str:
@@ -26,37 +26,29 @@ def get_date_range_for_week(week_str):
     end_date = start_date + timedelta(days=6)
     return start_date, end_date
 
-# --- DIRECT DISCOVERY CHANNEL ENGINE ---
+# --- DIRECT CONNECTION ENGINE ---
 using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
 connection_error = None
 
-# Using your verified published public CSV streaming path
-csv_target_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTAdE-eUfC-4N_l9u6L_7j6Z1G_I15_bZc6_w95N_-b61_v_C_t5C-N6u5_S_6B_m_q_p_x_y_z_w_v/pub?output=csv"
-# Fallback structure using direct sheet path if publication routing clears dynamically
-direct_sheet_url = "https://docs.google.com/spreadsheets/d/1bAmcqFWorJd7uIRpuet1oRMvmRUjsNd96T55se0q5Jg/pub?output=csv"
+# Linked directly to your verified public web publication stream
+csv_target_url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRMblRIafhDycZoVlcNeONz3MRqxJLiHonQ12S_9UHgHBIsN76uhlwy9AHpIUNSLdjhbY8GX3WXYpYw/pub?output=csv"
 
 try:
     browser_headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
-    
-    # Primary try on direct sheet path first
-    response = requests.get(direct_sheet_url, headers=browser_headers, timeout=10)
-    
-    if response.status_code != 200:
-        # Secondary fallback try if Google requires regional publication strings
-        response = requests.get(csv_target_url, headers=browser_headers, timeout=10)
+    response = requests.get(csv_target_url, headers=browser_headers, timeout=10)
 
     if response.status_code == 200:
         df_raw = pd.read_csv(StringIO(response.text))
         if df_raw is not None and not df_raw.empty:
             df_activities = df_raw.copy()
-            # Dynamically assign your dashboard frameworks over the source records
+            # Match frameworks perfectly across your database sheet columns
             df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'][:len(df_activities.columns)]
             using_cloud_db = True
     else:
-        connection_error = f"Google Cloud Engine response: Status {response.status_code}. Double-check that 'Publish to web' is active under your File menu."
+        connection_error = f"Google Cloud responded with status: {response.status_code}. Double check your Sheet's 'Publish to web' settings."
 except Exception as e:
     connection_error = str(e)
 
