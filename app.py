@@ -29,21 +29,21 @@ def get_date_range_for_week(week_str):
 # --- NATIVE OFFICIAL GOOGLE SHEETS CONNECTION ---
 using_cloud_db = False
 df_activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
+connection_error = None
 
 try:
-    # Establish official Streamlit connection to your Google Sheet secret
+    # Establish official Streamlit connection
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # Read the specific 'Form Responses 1' tab via its native string name
+    # Read the data sheet
     df_raw = conn.read(worksheet="Form Responses 1", ttl="0m")
     
     if df_raw is not None and not df_raw.empty:
         df_activities = df_raw.copy()
-        # Clean and standardize headers to match our tracking engine perfectly
         df_activities.columns = ['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'] + list(df_raw.columns[6:])
         using_cloud_db = True
 except Exception as e:
-    # Silent structural backup to local state tracking if network times out
+    connection_error = str(e)
     if 'activities' not in st.session_state:
         st.session_state.activities = pd.DataFrame(columns=['Timestamp', 'Date', 'Course', 'Type', 'Duration', 'Notes'])
     df_activities = st.session_state.activities
@@ -51,7 +51,6 @@ except Exception as e:
 # --- DATETIME PARSING ENGINE ---
 if not df_activities.empty and 'Date' in df_activities.columns:
     try:
-        # Standardize sheet slashes (5/18/2026) safely into clean python date filters
         df_activities['Date'] = pd.to_datetime(df_activities['Date'], errors='coerce').dt.date
     except Exception:
         pass
@@ -84,11 +83,13 @@ st.markdown("""
 st.markdown("<p style='text-align: center; color: #94a3b8; margin-top: -10px; font-size: 0.9rem;'>Official Analytic Dashboard for the 2026 Academic Year</p>", unsafe_allow_html=True)
 st.write("---")
 
-# Permanent Connection Notice
+# Error Diagnostics Banner
 if using_cloud_db:
     st.success("🔒 Connected safely via pre-authorized Google Gateway channel.")
 else:
     st.warning("⚠️ Running on temporary session fallback logic.")
+    if connection_error:
+        st.error(f"🔍 Connection Debug Error: {connection_error}")
 
 # --- WEEK FILTER ---
 current_week_num = max(1, ((datetime.now().date() - SEMESTER_START).days // 7) + 1)
