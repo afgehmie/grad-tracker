@@ -68,12 +68,14 @@ if not df_activities.empty and 'Date' in df_activities.columns:
 st.sidebar.title("⚙️ Controls & Settings")
 target_hours = st.sidebar.slider("Target Study Hours This Week", min_value=10, max_value=80, value=40, step=5)
 
+# --- UPDATED COURSE LIST ---
 if 'courses' not in st.session_state:
     st.session_state.courses = [
-        "Korean Language & Culture", "Financial Statement Analysis & Valuation",
-        "Introduction to Geospatial Analysis", "Managerial Accounting",
-        "Entrepreneurship & Innovation", "Programming Fundamentals using Python",
-        "Technological Innovation in Finance"
+        "Financial Statement Analysis & Valuation",
+        "Geospatial Analysis",
+        "Korean Language & Culture",
+        "Managerial Accounting",
+        "Programming Fundamentals using Python"
     ]
 editable_courses = st.sidebar.data_editor(pd.DataFrame({"Courses": st.session_state.courses}), num_rows="dynamic")
 course_list = editable_courses["Courses"].tolist()
