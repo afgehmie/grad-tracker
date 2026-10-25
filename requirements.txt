@@ -1,4 +1,5 @@
 streamlit
-plotly
 pandas
-st-gsheets-connection==0.1.0
+requests
+plotly
+openpyxl
